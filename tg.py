@@ -61,6 +61,8 @@ def main():
     use_gemini_client = False
     gemini_conf: dict | None = config.get("google_gemini")
     GOOGLE_GEMINI_KEY = os.environ.get("GOOGLE_GEMINI_KEY")
+    QWEATHER_KEY = os.environ.get("QWEATHER_KEY")
+
     if not gemini_conf and GOOGLE_GEMINI_KEY:
         gemini_conf = {"api_key": GOOGLE_GEMINI_KEY}
     if gemini_conf is not None:
@@ -81,6 +83,7 @@ def main():
         commands.append(BotCommand("prompt_pro", "prompt with GPT enhanced"))
     if use_gemini_client:
         commands.append(BotCommand("prompt_gem", "prompt with gemini enhanced"))
+        commands.append(BotCommand("weather_gem", "prompt with gemini enhanced"))
     bot.set_my_commands(commands)
     print("Bot init done.")
     bing_cookies_list = options.bing_cookie
@@ -210,8 +213,23 @@ def main():
     @bot.message_handler(commands=["weather"])
     @bot.message_handler(regexp="^weather:")
     def weather_handler(message: Message) -> None:
-        print(message)
-        weather = get_weather()
+        weather = get_weather(message, bot_name, QWEATHER_KEY)
+        s = get_msg(weather)
+        try:
+            bot.reply_to(message, s)
+        except Exception as e:
+            bot.reply_to(
+                message,
+                "Something is wrong when Gemini rewriting your prompt.",
+            )
+            print(str(e))
+        print(f"{message.from_user.id} send prompt: {s}")
+        # respond_prompt(bot, message, bing_cookie_pool, bing_cookie_cnt, s)
+
+    @bot.message_handler(commands=["weather_gem"])
+    @bot.message_handler(regexp="^weather_gem:")
+    def weather_handler(message: Message) -> None:
+        weather = get_weather(message, bot_name, QWEATHER_KEY)
         s = get_msg(weather)
         try:
             gemini_client = make_gemini_client()
@@ -225,7 +243,7 @@ def main():
             )
             print(str(e))
         print(f"{message.from_user.id} send prompt: {s}")
-        respond_prompt(bot, message, bing_cookie_pool, bing_cookie_cnt, s)
+        # respond_prompt(bot, message, bing_cookie_pool, bing_cookie_cnt, s)
 
     # Start bot
     print("Starting tg bing DALL-E 3 images bot.")

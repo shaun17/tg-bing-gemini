@@ -86,7 +86,7 @@ def extract_prompt(message: Message, bot_name: str) -> Optional[str]:
     if msg_text.startswith("@"):
         if not msg_text.startswith(f"@{bot_name} "):
             return None
-        s = msg_text[len(bot_name) + 2 :]
+        s = msg_text[len(bot_name) + 2:]
     else:
         start_words = [
             "prompt:",
@@ -205,7 +205,8 @@ moon_pic = {"800": "🌑", "801": "🌒", "802": "🌓", "803": "🌔", "804": "
 
 
 class Weather:
-    def __init__(self, fxDate, sunrise, sunset, tempMax, tempMin, textDay, humidity, uvIndex, windDirDay, windScaleDay, windSpeedDay, vis, moonPhase, moonPhaseIcon):
+    def __init__(self, fxDate, sunrise, sunset, tempMax, tempMin, textDay, humidity, uvIndex, windDirDay, windScaleDay,
+                 windSpeedDay, vis, moonPhase, moonPhaseIcon):
         self.fxDate = fxDate
         self.sunrise = sunrise
         self.sunset = sunset
@@ -222,11 +223,40 @@ class Weather:
         self.moonPhaseIcon = moonPhaseIcon
 
 
-def get_weather() -> Weather:
+def get_weather(message: Message, bot_name: str, key: str) -> Optional[Weather]:
+    msg_text: str = message.text.strip()
+    if msg_text.startswith("@"):
+        if not msg_text.startswith(f"@{bot_name} "):
+            return None
+        s = msg_text[len(bot_name) + 2:]
+    else:
+        start_words = [
+            "weather:",
+            "weather_gem:",
+            "/weather",
+            "/weather_gem",
+        ]
+        prefix = next((w for w in start_words if msg_text.startswith(w)), None)
+        if not prefix:
+            return None
+        s = msg_text[len(prefix):]
+        # If the first word is '@bot_name', remove it as it is considered part of the command when in a group chat.
+        if s.startswith("@"):
+            if not s.startswith(f"@{bot_name} "):
+                return None
+        s = " ".join(s.split(" ")[1:])
+
     params = {
-        "location": "101280601",
-        "key": "3f775af528d247fab88e4563c9df9666"
+        "location":  s if s else "shenzhen",
+        "key": key
     }
+    city = requests.get("https://geoapi.qweather.com/v2/city/lookup?", params=params).json()
+
+    if city.get('code') != '200':
+        return None
+
+    local_city = city.get('location')[0]
+    params["location"] = local_city.get("id")
 
     now_weather = requests.get("https://devapi.qweather.com/v7/weather/3d?", params=params).json()
     fxDate = now_weather.get("daily")[0].get("fxDate")
@@ -244,16 +274,21 @@ def get_weather() -> Weather:
     moonPhase = now_weather.get("daily")[0].get("moonPhase")
     moonPhaseIcon = moon_pic.get(now_weather.get("daily")[0].get("moonPhaseIcon"))
 
-    return Weather(fxDate, sunrise, sunset, tempMax, tempMin, textDay, humidity, uvIndex, windDirDay, windScaleDay, windSpeedDay, vis, moonPhase, moonPhaseIcon)
+    return Weather(fxDate, sunrise, sunset, tempMax, tempMin, textDay, humidity, uvIndex, windDirDay, windScaleDay,
+                   windSpeedDay, vis, moonPhase, moonPhaseIcon)
+
 
 # a = f"日期：{fxDate} \n天气情况：{textDay}\n最高温度：{tempMax}\n最低温度：{tempMin}\n风向：{windDirDay}\n风力等级：{windScaleDay}\n风速：{windSpeedDay}\n能见度：{vis}\n湿度：{humidity}%\n紫外线指数：{uvIndex}\n日出时间：{sunrise} AM\n日落时间：{sunset} PM\n月相名称：{moonPhase} {moonPhaseIcon}"
-def get_msg(weather: Weather)->str:
-
+def get_msg(weather: Weather) -> str:
     a = f"日期：{weather.fxDate} \n天气情况：{weather.textDay}\n最高温度：{weather.tempMax}\n最低温度：{weather.tempMin}\n风向：{weather.windDirDay}\n风力等级：{weather.windScaleDay}\n风速：{weather.windSpeedDay}\n能见度：{weather.vis}\n湿度：{weather.humidity}%\n紫外线指数：{weather.uvIndex}\n日出时间：{weather.sunrise} AM\n日落时间：{weather.sunset} PM\n月相名称：{weather.moonPhase} {weather.moonPhaseIcon}"
     return a
 
 
-
 if __name__ == '__main__':
-    weather = get_weather()
-    print(get_msg(weather))
+    params = {
+        "location": "shenzhen",
+        "key": "7fe5915e05bb45c682981d293fa726e0"
+    }
+    city = requests.get("https://geoapi.qweather.com/v2/city/lookup?", params=params).json()
+
+    print(city.get('location')[0])

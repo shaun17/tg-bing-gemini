@@ -169,3 +169,12 @@ credentials/
 config.toml
 temp.jpg
 config.sample.toml
+/.idea/aws.xml
+/.idea/misc.xml
+/.idea/modules.xml
+/openweather-cache.db
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/tg-bing-gemini.iml
+/.idea/vcs.xml
+/.idea/.gitignore
