@@ -17,7 +17,7 @@ from utils import (
     pro_prompt_by_gemini,
     pro_prompt_by_gemini_vision,
     has_quota,
-    make_gemini_client,
+    make_gemini_client, get_weather, get_msg,
 )
 
 
@@ -75,6 +75,7 @@ def main():
     commands = [
         BotCommand("prompt", "prompt of dalle-3"),
         BotCommand("quota", "cookie left quota"),
+        BotCommand("weather", "Today's weather")
     ]
     if openai_client:
         commands.append(BotCommand("prompt_pro", "prompt with GPT enhanced"))
@@ -206,10 +207,29 @@ def main():
         print(f"{message.from_user.id} send prompt: {s}")
         respond_prompt(bot, message, bing_cookie_pool, bing_cookie_cnt, s)
 
+    @bot.message_handler(commands=["weather"])
+    @bot.message_handler(regexp="^weather:")
+    def weather_handler(message: Message) -> None:
+        print(message)
+        weather = get_weather()
+        s = get_msg(weather)
+        try:
+            gemini_client = make_gemini_client()
+            bot.reply_to(message, s)
+            s = f"一名男生和一名女生，天气{weather.textDay},最高温度{weather.tempMax},最低温度{weather.tempMin}的衣服穿搭"
+            s = pro_prompt_by_gemini(s, gemini_client)
+        except Exception as e:
+            bot.reply_to(
+                message,
+                "Something is wrong when Gemini rewriting your prompt.",
+            )
+            print(str(e))
+        print(f"{message.from_user.id} send prompt: {s}")
+        respond_prompt(bot, message, bing_cookie_pool, bing_cookie_cnt, s)
+
     # Start bot
     print("Starting tg bing DALL-E 3 images bot.")
     bot.infinity_polling()
-
 
 if __name__ == "__main__":
     main()
