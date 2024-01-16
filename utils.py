@@ -8,6 +8,7 @@ import google.generativeai as genai
 from openai import OpenAI
 from BingImageCreator import ImageGen  # type: ignore
 from telebot.types import Message  # type: ignore
+from qweatherpyapi.qweather import QWeatherPy, GeoWeather
 
 
 def make_gemini_client():
@@ -205,22 +206,22 @@ moon_pic = {"800": "🌑", "801": "🌒", "802": "🌓", "803": "🌔", "804": "
 
 
 class Weather:
-    def __init__(self, fxDate, sunrise, sunset, tempMax, tempMin, textDay, humidity, uvIndex, windDirDay, windScaleDay,
-                 windSpeedDay, vis, moonPhase, moonPhaseIcon):
-        self.fxDate = fxDate
+    def __init__(self, fx_date, sunrise, sunset, temp_max, temp_min, text_day, humidity, uv_index, wind_dir_day,
+                 wind_scale_day, wind_speed_day, vis, moon_phase, moon_phase_icon):
+        self.fx_date = fx_date
         self.sunrise = sunrise
         self.sunset = sunset
-        self.tempMax = tempMax
-        self.tempMin = tempMin
-        self.textDay = textDay
+        self.temp_max = temp_max
+        self.temp_min = temp_min
+        self.text_day = text_day
         self.humidity = humidity
-        self.uvIndex = uvIndex
-        self.windDirDay = windDirDay
-        self.windScaleDay = windScaleDay
-        self.windSpeedDay = windSpeedDay
+        self.uv_index = uv_index
+        self.wind_dir_day = wind_dir_day
+        self.wind_scale_day = wind_scale_day
+        self.wind_speed_day = wind_speed_day
         self.vis = vis
-        self.moonPhase = moonPhase
-        self.moonPhaseIcon = moonPhaseIcon
+        self.moon_phase = moon_phase
+        self.moon_phase_icon = moon_phase_icon
 
 
 def get_weather(message: Message, bot_name: str, key: str) -> Optional[Weather]:
@@ -246,49 +247,19 @@ def get_weather(message: Message, bot_name: str, key: str) -> Optional[Weather]:
                 return None
         s = " ".join(s.split(" ")[1:])
 
-    params = {
-        "location":  s if s else "shenzhen",
-        "key": key
-    }
-    city = requests.get("https://geoapi.qweather.com/v2/city/lookup?", params=params).json()
-
-    if city.get('code') != '200':
+    city = GeoWeather(key).get_city_lookup(s if s else "shenzhen")
+    if city.code != '200':
         return None
+    local_city = city.location[0].id
 
-    local_city = city.get('location')[0]
-    params["location"] = local_city.get("id")
+    now_weather = QWeatherPy(key).get_weather_3d(local_city)
+    daily = now_weather.daily[0]
+    keys = ["fx_date", "sunrise", "sunset", "temp_max", "temp_min", "text_day", "humidity", "uv_index",
+            "wind_dir_day", "wind_scale_day", "wind_speed_day", "vis", "moon_phase"]
+    data = {key: getattr(daily, key) for key in keys}
+    data['moon_phase_icon'] = moon_pic.get(daily.moon_phase_icon)
+    return Weather(**data)
 
-    now_weather = requests.get("https://devapi.qweather.com/v7/weather/3d?", params=params).json()
-    fxDate = now_weather.get("daily")[0].get("fxDate")
-    sunrise = now_weather.get("daily")[0].get("sunrise")
-    sunset = now_weather.get("daily")[0].get("sunset")
-    tempMax = now_weather.get("daily")[0].get("tempMax")
-    tempMin = now_weather.get("daily")[0].get("tempMin")
-    textDay = now_weather.get("daily")[0].get("textDay")
-    humidity = now_weather.get("daily")[0].get("humidity")
-    uvIndex = now_weather.get("daily")[0].get("uvIndex")
-    windDirDay = now_weather.get("daily")[0].get("windDirDay")
-    windScaleDay = now_weather.get("daily")[0].get("windScaleDay")
-    windSpeedDay = now_weather.get("daily")[0].get("windSpeedDay")
-    vis = now_weather.get("daily")[0].get("vis")
-    moonPhase = now_weather.get("daily")[0].get("moonPhase")
-    moonPhaseIcon = moon_pic.get(now_weather.get("daily")[0].get("moonPhaseIcon"))
-
-    return Weather(fxDate, sunrise, sunset, tempMax, tempMin, textDay, humidity, uvIndex, windDirDay, windScaleDay,
-                   windSpeedDay, vis, moonPhase, moonPhaseIcon)
-
-
-# a = f"日期：{fxDate} \n天气情况：{textDay}\n最高温度：{tempMax}\n最低温度：{tempMin}\n风向：{windDirDay}\n风力等级：{windScaleDay}\n风速：{windSpeedDay}\n能见度：{vis}\n湿度：{humidity}%\n紫外线指数：{uvIndex}\n日出时间：{sunrise} AM\n日落时间：{sunset} PM\n月相名称：{moonPhase} {moonPhaseIcon}"
 def get_msg(weather: Weather) -> str:
-    a = f"日期：{weather.fxDate} \n天气情况：{weather.textDay}\n最高温度：{weather.tempMax}\n最低温度：{weather.tempMin}\n风向：{weather.windDirDay}\n风力等级：{weather.windScaleDay}\n风速：{weather.windSpeedDay}\n能见度：{weather.vis}\n湿度：{weather.humidity}%\n紫外线指数：{weather.uvIndex}\n日出时间：{weather.sunrise} AM\n日落时间：{weather.sunset} PM\n月相名称：{weather.moonPhase} {weather.moonPhaseIcon}"
+    a = f"日期：{weather.fx_date} \n天气情况：{weather.text_day}\n最高温度：{weather.temp_max}\n最低温度：{weather.temp_min}\n风向：{weather.wind_dir_day}\n风力等级：{weather.wind_scale_day}\n风速：{weather.wind_speed_day}\n能见度：{weather.vis}\n湿度：{weather.humidity}%\n紫外线指数：{weather.uv_index}\n日出时间：{weather.sunrise} AM\n日落时间：{weather.sunset} PM\n月相名称：{weather.moon_phase} {weather.moon_phase_icon}"
     return a
-
-
-if __name__ == '__main__':
-    params = {
-        "location": "shenzhen",
-        "key": "7fe5915e05bb45c682981d293fa726e0"
-    }
-    city = requests.get("https://geoapi.qweather.com/v2/city/lookup?", params=params).json()
-
-    print(city.get('location')[0])
