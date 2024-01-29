@@ -72,8 +72,6 @@ def main():
 
     # Init bot
     bot = TeleBot(options.tg_token)
-    # 删除Webhook
-    bot.remove_webhook()
 
     bot_name = bot.get_me().username
     bot.delete_my_commands(scope=None, language_code=None)
